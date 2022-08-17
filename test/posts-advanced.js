@@ -1,61 +1,78 @@
-import supertest from "supertest";
 import { expect } from "chai";
-import { it } from "node:test";
-const { createRandomUser } = require('../helpers/user_helper.js');
-const request = supertest("https://gorest.co.in/public-api/");
+import request from "../config/common.js";
+const faker = require("faker");
+require('dotenv').config();
+const { createRandomUser } = require("../helpers/user_helper.js");
+const { createRandomUserWithFaker } = require("../helpers/user_helper.js");
+const TOKEN = process.env.USER_TOKEN;
+
 let postId;
 let userId;
-const TOKEN =
-  "d1c72101ce90cf9265f13f2c0c4c27b3d51e1f8115135b16d3fa2543d445e4ac";
 
+describe.only("User Posts", () => {
+  before(async () => {
+    // userId = await createRandomUser();
+    userId = await createRandomUserWithFaker();
+  });
+  it.only("/posts", async () => {
+    const data = {
+      user_id: userId,
+      title: faker.lorem.word(),
+      body: faker.lorem.words(),
+    };
 
-xdescribe("User Posts", () => {
+    const postRes = await request
+      .post("posts")
+      .set("Authorization", `Bearer ${TOKEN}`)
+      .send(data);
+    console.log(data, " before post ID");
 
-  xit("/posts", async () => {
-           const data = {
-          user_id: userId,
-          title: "apit test",
-          body: "first api test",
-        };
+    expect(postRes.body.data.title).to.eq(data.title);
+    postId = postRes.body.data.id;
+    console.log('POST ID', postId);
 
-       const postRes = await request
-          .post("posts")
-          .set("Authorization", `Bearer ${TOKEN}`)
-          .send(data);
-          expect(postRes.body.data).to.deep.include(data);
-        postId = postRes.body.data.id;
   });
 
-  xit("GET /posts/:id", async () => {
+  it.only("GET /posts/:id", async () => {
     await request
       .get(`posts/${postId}`)
       .set("Authorization", `Bearer ${TOKEN}`)
       .expect(200);
-      console.log(postId);
+    console.log(postId, " POST ID FROM GET REQUEST");
   });
 });
 
-describe.only('Negative tests', () => {
-    
+describe("Negative tests", () => {
   before(async () => {
     userId = await createRandomUser();
-   });
-   
-    it('401 Authentication Failed', async () => {
-        const data = {
-            user_id: userId,
-            title: "apit test",
-            body: "first api test",
-          };
-  
-         const postRes = await request
-            .post("posts")
-            .set("Authorization", `Bearer ${TOKEN}`)
-            .send(data);
-            console.log(postRes.body, " -------------------------");
-            expect(postRes.body.code).to.eq(401);
-            expect(postRes.body.data.message).to.eq('Authentication failed');
+  });
 
+  it("401 Authentication Failed", async () => {
+    const data = {
+      user_id: userId,
+      title: "apit test",
+      body: "first api test",
+    };
 
-    })
-  })
+    const postRes = await request.post("posts").send(data);
+    console.log(postRes.body, " -------------------------");
+    expect(postRes.body.code).to.eq(401);
+    expect(postRes.body.data.message).to.eq("Authentication failed");
+  });
+
+  it("422 Authentication Failed", async () => {
+    const data = {
+      user_id: userId,
+      title: "apit test",
+    };
+
+    const postRes = await request
+      .post("posts")
+      .set("Authorization", `Bearer ${TOKEN}`)
+      .send(data);
+    console.log(postRes.body.data, " --------------++++++++");
+    expect(postRes.body.code).to.eq(422);
+    expect(postRes.body.data[0].field).to.eq("body");
+    expect(postRes.body.data[0].message).to.eq("can't be blank");
+  });
+});
